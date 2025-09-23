@@ -606,7 +606,7 @@ public class FriendManager {
             HttpResponse<String> inviteResponse = httpClient.send(sendInvite, HttpResponse.BodyHandlers.ofString());
             logger.debug(inviteResponse.body());
 
-            TimeUnit.MILLISECONDS.sleep(60);
+            TimeUnit.SECONDS.sleep(1);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
