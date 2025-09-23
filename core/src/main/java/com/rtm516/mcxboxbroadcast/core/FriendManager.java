@@ -262,25 +262,12 @@ public class FriendManager {
                         }
 
                         sendInvite(person.xuid, person.gamertag != null ? person.gamertag : person.displayName);
-                        try {
-                            TimeUnit.MILLISECONDS.sleep(50);
-                        } catch (InterruptedException interruptedException) {
-                            Thread.currentThread().interrupt();
-                            return;
-                        }
                     }
                 } catch (Exception e) {
                     logger.error("Failed to send periodic invites", e);
                 }
                 if (!firstRun) {
-                    logger.info("Invite cycle completed; waiting 20 seconds before repeating");
-                    try {
-                        TimeUnit.SECONDS.sleep(20);
-                    } catch (InterruptedException interruptedException) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                    logger.info("Issuing restart command before repeating invite cycle");
+                    logger.info("Invite cycle completed; restarting immediately before repeating");
                     if (sessionManager instanceof SessionManager sessionManagerImpl) {
                         sessionManagerImpl.restart();
                     } else {
