@@ -605,7 +605,12 @@ public class FriendManager {
 
             HttpResponse<String> inviteResponse = httpClient.send(sendInvite, HttpResponse.BodyHandlers.ofString());
             logger.debug(inviteResponse.body());
+
+            TimeUnit.MILLISECONDS.sleep(60);
         } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             logger.error("Failed to send invite to " + xuid + ": " + e.getMessage());
         }
     }
