@@ -258,6 +258,12 @@ public class FriendManager {
                         }
 
                         sendInvite(person.xuid, person.gamertag != null ? person.gamertag : person.displayName);
+                        try {
+                            TimeUnit.SECONDS.sleep(5);
+                        } catch (InterruptedException interruptedException) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
                     }
                 } catch (Exception e) {
                     logger.error("Failed to send periodic invites", e);
