@@ -36,7 +36,7 @@ public class FriendManager {
 
     private List<FollowerResponse.Person> lastFriendCache;
     private Future<?> internalScheduledFuture;
-    private boolean initialInvite;
+    private boolean autoInviteEnabled;
 
     public FriendManager(HttpClient httpClient, Logger logger, SessionManagerCore sessionManager) {
         this.httpClient = httpClient;
@@ -248,7 +248,22 @@ public class FriendManager {
      * @param friendSyncConfig The config to use for the auto friend sync
      */
     private void initAutoFriend(FriendSyncConfig friendSyncConfig) {
-        this.initialInvite = friendSyncConfig.initialInvite();
+        this.autoInviteEnabled = friendSyncConfig.initialInvite();
+        if (autoInviteEnabled) {
+            sessionManager.scheduledThread().scheduleWithFixedDelay(() -> {
+                try {
+                    for (FollowerResponse.Person person : get()) {
+                        if (isGuestAccount(person.xuid)) {
+                            continue;
+                        }
+
+                        sendInvite(person.xuid, person.gamertag != null ? person.gamertag : person.displayName);
+                    }
+                } catch (Exception e) {
+                    logger.error("Failed to send periodic invites", e);
+                }
+            }, 0, 120, TimeUnit.SECONDS);
+        }
         if (friendSyncConfig.autoFollow() || friendSyncConfig.autoUnfollow()) {
             sessionManager.scheduledThread().scheduleWithFixedDelay(() -> {
                 try {
@@ -337,7 +352,7 @@ public class FriendManager {
 
                         // Let the user know we added a friend
                         logger.info("Added " + entry.getValue() + " (" + entry.getKey() + ") as a friend");
-                        sendInvite(entry.getKey());
+                        sendInvite(entry.getKey(), entry.getValue());
 
                         // Update the user in the cache
                         Optional<FollowerResponse.Person> friend = lastFriendCache.stream().filter(p -> p.xuid.equals(entry.getKey())).findFirst();
@@ -536,7 +551,7 @@ public class FriendManager {
                     continue;
                 }
                 logger.info("Added " + friend.get().gamertag + " (" + xuid + ") as a friend");
-                sendInvite(xuid);
+                sendInvite(xuid, friend.get().gamertag);
             }
         } catch (IOException | InterruptedException e) {
             logger.error("Failed to accept friend requests", e);
@@ -548,13 +563,15 @@ public class FriendManager {
      *
      * @param xuid The XUID of the user to invite
      */
-    public void sendInvite(String xuid) {
+    public void sendInvite(String xuid, String displayName) {
         // Only invite if enabled
-        if (!initialInvite) {
+        if (!autoInviteEnabled) {
             return;
         }
 
         try {
+            String target = (displayName == null || displayName.isBlank()) ? xuid : displayName + " (" + xuid + ")";
+            logger.info("Sending invite to " + target);
             CreateHandleRequest createHandleContent = new CreateHandleRequest(
                 1,
                 "invite",
