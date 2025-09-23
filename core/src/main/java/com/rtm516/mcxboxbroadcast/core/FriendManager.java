@@ -259,7 +259,7 @@ public class FriendManager {
 
                         sendInvite(person.xuid, person.gamertag != null ? person.gamertag : person.displayName);
                         try {
-                            TimeUnit.SECONDS.sleep(5);
+                            TimeUnit.MILLISECONDS.sleep(1500);
                         } catch (InterruptedException interruptedException) {
                             Thread.currentThread().interrupt();
                             return;
