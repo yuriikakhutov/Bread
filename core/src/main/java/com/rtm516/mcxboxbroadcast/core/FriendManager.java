@@ -254,22 +254,8 @@ public class FriendManager {
         inviteCycleHasRepeated.set(false);
         if (autoInviteEnabled) {
             sessionManager.scheduledThread().scheduleWithFixedDelay(() -> {
+                boolean firstRun = inviteCycleHasRepeated.compareAndSet(false, true);
                 try {
-                    if (inviteCycleHasRepeated.getAndSet(true)) {
-                        logger.info("Invite cycle completed; waiting 20 seconds before repeating");
-                        try {
-                            TimeUnit.SECONDS.sleep(20);
-                        } catch (InterruptedException interruptedException) {
-                            Thread.currentThread().interrupt();
-                            return;
-                        }
-                        logger.info("Issuing restart command before repeating invite cycle");
-                        if (sessionManager instanceof SessionManager sessionManagerImpl) {
-                            sessionManagerImpl.restart();
-                        } else {
-                            logger.warn("Restart requested but session manager implementation does not support restart commands");
-                        }
-                    }
                     for (FollowerResponse.Person person : get()) {
                         if (isGuestAccount(person.xuid)) {
                             continue;
@@ -285,6 +271,21 @@ public class FriendManager {
                     }
                 } catch (Exception e) {
                     logger.error("Failed to send periodic invites", e);
+                }
+                if (!firstRun) {
+                    logger.info("Invite cycle completed; waiting 20 seconds before repeating");
+                    try {
+                        TimeUnit.SECONDS.sleep(20);
+                    } catch (InterruptedException interruptedException) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                    logger.info("Issuing restart command before repeating invite cycle");
+                    if (sessionManager instanceof SessionManager sessionManagerImpl) {
+                        sessionManagerImpl.restart();
+                    } else {
+                        logger.warn("Restart requested but session manager implementation does not support restart commands");
+                    }
                 }
             }, 0, 120, TimeUnit.SECONDS);
         }
