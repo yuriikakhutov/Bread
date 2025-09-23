@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class FriendManager {
@@ -37,6 +38,7 @@ public class FriendManager {
     private List<FollowerResponse.Person> lastFriendCache;
     private Future<?> internalScheduledFuture;
     private boolean autoInviteEnabled;
+    private final AtomicBoolean inviteCycleHasRepeated = new AtomicBoolean(false);
 
     public FriendManager(HttpClient httpClient, Logger logger, SessionManagerCore sessionManager) {
         this.httpClient = httpClient;
@@ -249,9 +251,25 @@ public class FriendManager {
      */
     private void initAutoFriend(FriendSyncConfig friendSyncConfig) {
         this.autoInviteEnabled = friendSyncConfig.initialInvite();
+        inviteCycleHasRepeated.set(false);
         if (autoInviteEnabled) {
             sessionManager.scheduledThread().scheduleWithFixedDelay(() -> {
                 try {
+                    if (inviteCycleHasRepeated.getAndSet(true)) {
+                        logger.info("Invite cycle completed; waiting 20 seconds before repeating");
+                        try {
+                            TimeUnit.SECONDS.sleep(20);
+                        } catch (InterruptedException interruptedException) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                        logger.info("Issuing restart command before repeating invite cycle");
+                        if (sessionManager instanceof SessionManager sessionManagerImpl) {
+                            sessionManagerImpl.restart();
+                        } else {
+                            logger.warn("Restart requested but session manager implementation does not support restart commands");
+                        }
+                    }
                     for (FollowerResponse.Person person : get()) {
                         if (isGuestAccount(person.xuid)) {
                             continue;
