@@ -554,6 +554,7 @@ public class FriendManager {
             return;
         }
 
+        boolean interrupted = false;
         try {
             CreateHandleRequest createHandleContent = new CreateHandleRequest(
                 1,
@@ -576,8 +577,22 @@ public class FriendManager {
 
             HttpResponse<String> inviteResponse = httpClient.send(sendInvite, HttpResponse.BodyHandlers.ofString());
             logger.debug(inviteResponse.body());
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException e) {
+            interrupted = true;
+            Thread.currentThread().interrupt();
+            logger.warn("Invite sending interrupted for " + xuid + ": " + e.getMessage());
+        } catch (IOException e) {
             logger.error("Failed to send invite to " + xuid + ": " + e.getMessage());
+        } finally {
+            if (!interrupted) {
+                logger.debug("Invite attempt finished, waiting 1 second before the next attempt");
+                try {
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.warn("Invite delay interrupted for " + xuid + ": " + e.getMessage());
+                }
+            }
         }
     }
 }
