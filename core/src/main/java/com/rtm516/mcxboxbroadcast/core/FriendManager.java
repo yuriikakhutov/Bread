@@ -337,11 +337,17 @@ public class FriendManager {
 
                         // Let the user know we added a friend
                         logger.info("Added " + entry.getValue() + " (" + entry.getKey() + ") as a friend");
-                        sendInvite(entry.getKey());
 
-                        // Update the user in the cache
                         Optional<FollowerResponse.Person> friend = lastFriendCache.stream().filter(p -> p.xuid.equals(entry.getKey())).findFirst();
                         friend.ifPresent(person -> person.isFollowedByCaller = true);
+
+                        if (isGuestAccount(entry.getKey())) {
+                            logger.debug("Skipping invite for guest account " + entry.getValue() + " (" + entry.getKey() + ")");
+                        } else if (friend.map(person -> person.isFollowingCaller && person.isFollowedByCaller).orElse(false)) {
+                            sendInvite(entry.getKey());
+                        } else {
+                            logger.info("Skipping invite for " + entry.getValue() + " (" + entry.getKey() + ") because friendship is not mutual");
+                        }
                     } else if (response.statusCode() == 429) {
                         // The friend wasn't added successfully so get the retry after header
                         Optional<String> header = response.headers().firstValue("Retry-After");
