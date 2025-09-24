@@ -261,7 +261,22 @@ public class FriendManager {
                             continue;
                         }
 
-                        sendInvite(person.xuid, person.gamertag != null ? person.gamertag : person.displayName);
+                        String personName = person.gamertag != null && !person.gamertag.isBlank()
+                            ? person.gamertag
+                            : person.displayName;
+                        if (personName == null || personName.isBlank()) {
+                            personName = person.xuid;
+                        }
+
+                        if (!(person.isFollowingCaller && person.isFollowedByCaller)) {
+                            logger.info(
+                                "Skipping invite for " + personName +
+                                    " (" + person.xuid + ") because friendship is not mutual"
+                            );
+                            continue;
+                        }
+
+                        sendInvite(person.xuid, personName);
                     }
                 } catch (Exception e) {
                     logger.error("Failed to send periodic invites", e);
@@ -581,8 +596,13 @@ public class FriendManager {
             return;
         }
 
+        boolean interrupted = false;
         try {
-            String target = (displayName == null || displayName.isBlank()) ? xuid : displayName + " (" + xuid + ")";
+            String trimmedDisplay = (displayName == null || displayName.isBlank()) ? null : displayName;
+            String target = xuid;
+            if (trimmedDisplay != null && !trimmedDisplay.equals(xuid)) {
+                target = trimmedDisplay + " (" + xuid + ")";
+            }
             logger.info("Sending invite to " + target);
             CreateHandleRequest createHandleContent = new CreateHandleRequest(
                 1,
@@ -605,13 +625,20 @@ public class FriendManager {
 
             HttpResponse<String> inviteResponse = httpClient.send(sendInvite, HttpResponse.BodyHandlers.ofString());
             logger.debug(inviteResponse.body());
-
-            TimeUnit.SECONDS.sleep(1);
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
+        } catch (InterruptedException e) {
+            interrupted = true;
+            Thread.currentThread().interrupt();
+            logger.error("Failed to send invite to " + xuid, e);
+        } catch (IOException e) {
+            logger.error("Failed to send invite to " + xuid, e);
+        } finally {
+            if (!interrupted) {
+                try {
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
-            logger.error("Failed to send invite to " + xuid + ": " + e.getMessage());
         }
     }
 }
