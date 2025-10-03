@@ -36,7 +36,10 @@ public class FriendManager {
 
     private List<FollowerResponse.Person> lastFriendCache;
     private Future<?> internalScheduledFuture;
+    private Future<?> autoInviteScheduledFuture;
     private boolean initialInvite;
+    private long autoInviteIntervalSeconds;
+    private volatile boolean autoInviteCycleStarted;
 
     public FriendManager(HttpClient httpClient, Logger logger, SessionManagerCore sessionManager) {
         this.httpClient = httpClient;
@@ -249,6 +252,8 @@ public class FriendManager {
      */
     private void initAutoFriend(FriendSyncConfig friendSyncConfig) {
         this.initialInvite = friendSyncConfig.initialInvite();
+        this.autoInviteIntervalSeconds = friendSyncConfig.autoInviteInterval();
+        initAutoInvite();
         if (friendSyncConfig.autoFollow() || friendSyncConfig.autoUnfollow()) {
             sessionManager.scheduledThread().scheduleWithFixedDelay(() -> {
                 try {
@@ -273,6 +278,45 @@ public class FriendManager {
                 }
             }, friendSyncConfig.updateInterval(), friendSyncConfig.updateInterval(), TimeUnit.SECONDS);
         }
+    }
+
+    private void initAutoInvite() {
+        if (!initialInvite) {
+            return;
+        }
+
+        if (autoInviteIntervalSeconds <= 0) {
+            logger.warn("Auto invite interval is invalid; skipping automatic invites");
+            return;
+        }
+
+        if (autoInviteScheduledFuture != null && !autoInviteScheduledFuture.isDone()) {
+            return;
+        }
+
+        autoInviteCycleStarted = false;
+        autoInviteScheduledFuture = sessionManager.scheduledThread().scheduleWithFixedDelay(() -> {
+            try {
+                if (autoInviteCycleStarted) {
+                    logger.info("Auto invite cycle elapsed; restarting session before sending new invites");
+                    sessionManager.restart();
+                } else {
+                    autoInviteCycleStarted = true;
+                }
+
+                logger.info("Starting automatic invite cycle");
+
+                for (FollowerResponse.Person friend : get()) {
+                    if (isGuestAccount(friend.xuid)) {
+                        continue;
+                    }
+
+                    sendInvite(friend.xuid);
+                }
+            } catch (XboxFriendsException e) {
+                logger.error("Failed to send automatic invites", e);
+            }
+        }, 0, autoInviteIntervalSeconds, TimeUnit.SECONDS);
     }
 
     /**
@@ -549,12 +593,23 @@ public class FriendManager {
      * @param xuid The XUID of the user to invite
      */
     public void sendInvite(String xuid) {
-        // Only invite if enabled
-        if (!initialInvite) {
-            return;
-        }
-
         try {
+            if (!initialInvite) {
+                logger.debug("Initial invites are disabled, skipping invite for " + xuid);
+                return;
+            }
+
+            Optional<FollowerResponse.Person> friend = Optional.empty();
+            if (lastFriendCache != null) {
+                friend = lastFriendCache.stream().filter(person -> person.xuid.equals(xuid)).findFirst();
+            }
+
+            if (friend.isPresent()) {
+                logger.info("Sending invite to " + friend.get().gamertag + " (" + xuid + ")");
+            } else {
+                logger.info("Sending invite to " + xuid);
+            }
+
             CreateHandleRequest createHandleContent = new CreateHandleRequest(
                 1,
                 "invite",

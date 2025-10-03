@@ -81,7 +81,12 @@ public class SessionManager extends SessionManagerCore {
         // Set up the auto friend sync
         if (friendSyncConfig.updateInterval() < 20) {
             logger.warn("Friend sync update interval is less than 20 seconds, setting to 20 seconds");
-            friendSyncConfig = new FriendSyncConfig(20, friendSyncConfig.autoFollow(), friendSyncConfig.autoUnfollow(), friendSyncConfig.initialInvite(), friendSyncConfig.shouldExpire(), friendSyncConfig.expireDays(), friendSyncConfig.expireCheck());
+            friendSyncConfig = new FriendSyncConfig(20, friendSyncConfig.autoFollow(), friendSyncConfig.autoUnfollow(), friendSyncConfig.initialInvite(), friendSyncConfig.autoInviteInterval(), friendSyncConfig.shouldExpire(), friendSyncConfig.expireDays(), friendSyncConfig.expireCheck());
+        }
+
+        if (friendSyncConfig.autoInviteInterval() <= 0) {
+            logger.warn("Auto invite interval must be greater than 0 seconds, setting to 120 seconds");
+            friendSyncConfig = new FriendSyncConfig(friendSyncConfig.updateInterval(), friendSyncConfig.autoFollow(), friendSyncConfig.autoUnfollow(), friendSyncConfig.initialInvite(), 120, friendSyncConfig.shouldExpire(), friendSyncConfig.expireDays(), friendSyncConfig.expireCheck());
         }
         this.friendSyncConfig = friendSyncConfig;
         friendManager().init(this.friendSyncConfig);
@@ -294,6 +299,7 @@ public class SessionManager extends SessionManagerCore {
     /**
      * Restart the session manager
      */
+    @Override
     public void restart() {
         if (restartCallback != null) {
             restartCallback.run();

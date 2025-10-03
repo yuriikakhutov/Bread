@@ -373,6 +373,14 @@ public abstract class SessionManagerCore {
     }
 
     /**
+     * Restart the session manager implementation if supported.
+     * Implementations that cannot restart should override this method if needed.
+     */
+    public void restart() {
+        logger.debug("Restart requested but not supported for this session manager instance");
+    }
+
+    /**
      * Use the data in the cache to get the Xbox authentication header
      *
      * @return The formatted XBL3.0 authentication header
