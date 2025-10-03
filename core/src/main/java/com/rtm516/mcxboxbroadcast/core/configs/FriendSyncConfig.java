@@ -7,6 +7,7 @@ public record FriendSyncConfig(
     @JsonProperty("auto-follow") boolean autoFollow,
     @JsonProperty("auto-unfollow") boolean autoUnfollow,
     @JsonProperty("initial-invite") boolean initialInvite,
+    @JsonProperty("auto-invite-interval") int autoInviteInterval,
     @JsonProperty("should-expire") boolean shouldExpire,
     @JsonProperty("expire-days") int expireDays,
     @JsonProperty("expire-check") int expireCheck) {

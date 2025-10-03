@@ -35,8 +35,11 @@ friend-sync:
   # Should we automatically unfollow people that no longer follow us
   auto-unfollow: true
 
-  # Should we automatically send an invite when a friend is added
+  # Should we automatically and periodically send invites to friends
   initial-invite: true
+
+  # How often in seconds automatic invites should be re-sent
+  auto-invite-interval: 120
 
   # Should we unfriend people that haven't joined the server in a while
   should-expire: true
